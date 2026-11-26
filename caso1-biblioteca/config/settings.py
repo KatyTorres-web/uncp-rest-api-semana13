@@ -16,11 +16,6 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or "django-insecure-ngadu2^qxzz$)-v^3mn2)=d2+n6e)&m&96fn7fcr4n3rcxied&"
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 PRODUCCION = os.environ.get("PRODUCCION") == "1"
@@ -131,10 +126,6 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# =============================================================================
-# DJANGO REST FRAMEWORK (configuración global)
-# =============================================================================
 REST_FRAMEWORK = {
     # Token para la API (campus virtual, apps móviles) + Sesión para el admin web
     "DEFAULT_AUTHENTICATION_CLASSES": [
