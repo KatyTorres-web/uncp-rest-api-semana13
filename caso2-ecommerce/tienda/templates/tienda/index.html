@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TecnoMarket Perú</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root { --tecno: #111827; --acento: #2563eb; }
+    body { background: #f3f4f6; }
+    .navbar { background: var(--tecno); }
+    .btn-tecno { background: var(--acento); color: #fff; }
+    .btn-tecno:hover { background: #1d4ed8; color: #fff; }
+    .card-producto { border: 0; transition: transform .15s; }
+    .card-producto:hover { transform: translateY(-3px); }
+    .tachado { text-decoration: line-through; color: #9ca3af; font-size: .85rem; }
+    .estrellas { color: #f59e0b; }
+    .peticion { font-family: monospace; font-size: .85rem; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark mb-4">
+    <div class="container">
+      <span class="navbar-brand"><i class="bi bi-cpu"></i> TecnoMarket Perú</span>
+      <div class="d-flex gap-2 align-items-center">
+        <a class="btn btn-sm btn-outline-light" href="/api/docs/"><i class="bi bi-file-earmark-code"></i> Swagger</a>
+        <span id="usuarioActual" class="text-white small"></span>
+        <button class="btn btn-sm btn-light position-relative" data-bs-toggle="offcanvas" data-bs-target="#panelCarrito" id="btnCarrito">
+          <i class="bi bi-cart3"></i> Carrito
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="contadorCarrito">0</span>
+        </button>
+        <button class="btn btn-sm btn-outline-light" id="btnOrdenes"><i class="bi bi-receipt"></i> Mis órdenes</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- Login: token de /api/auth/token/ -->
+    <form id="formLogin" class="card card-body shadow-sm mb-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label small">Usuario</label>
+          <input name="username" class="form-control" placeholder="c.ramos" required></div>
+        <div class="col-md-4"><label class="form-label small">Contraseña</label>
+          <input name="password" type="password" class="form-control" required></div>
+        <div class="col-md-4 d-grid"><button class="btn btn-tecno"><i class="bi bi-key"></i> Iniciar sesión (token)</button></div>
+      </div>
+    </form>
+
+    <!-- Filtros: se convierten en parámetros de /api/productos/ -->
+    <form id="filtros" class="card card-body shadow-sm mb-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3"><label class="form-label small">Buscar</label>
+          <input name="search" class="form-control" placeholder="gaming laptop"></div>
+        <div class="col-md-2"><label class="form-label small">Categoría</label>
+          <select name="categoria" id="selCategoria" class="form-select"><option value="">Todas</option></select></div>
+        <div class="col-md-2"><label class="form-label small">Marca</label>
+          <input name="marca" class="form-control" placeholder="dell"></div>
+        <div class="col-md-1"><label class="form-label small">S/ mín.</label>
+          <input name="precio_min" type="number" class="form-control"></div>
+        <div class="col-md-1"><label class="form-label small">S/ máx.</label>
+          <input name="precio_max" type="number" class="form-control"></div>
+        <div class="col-md-2"><label class="form-label small">Ordenar</label>
+          <select name="ordering" class="form-select">
+            <option value="">Más nuevos</option>
+            <option value="precio">Precio: menor a mayor</option>
+            <option value="-precio">Precio: mayor a menor</option>
+            <option value="-rating_promedio">Mejor calificados</option>
+          </select></div>
+        <div class="col-md-1 d-grid"><button class="btn btn-tecno"><i class="bi bi-search"></i></button></div>
+      </div>
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" name="disponible" value="true" id="chkDisp">
+        <label class="form-check-label small" for="chkDisp">Solo con stock</label>
+      </div>
+    </form>
+
+    <div class="alert alert-light border d-flex justify-content-between align-items-center">
+      <span class="peticion"><i class="bi bi-arrow-right-circle"></i> <span id="urlPeticion">-</span></span>
+      <span class="badge text-bg-secondary" id="total"></span>
+    </div>
+    <div id="mensaje"></div>
+
+    <div class="row g-3" id="productos"></div>
+    <nav class="d-flex justify-content-center gap-2 my-4">
+      <button class="btn btn-outline-secondary" id="btnAnterior" disabled><i class="bi bi-chevron-left"></i> Anterior</button>
+      <button class="btn btn-outline-secondary" id="btnSiguiente" disabled>Siguiente <i class="bi bi-chevron-right"></i></button>
+    </nav>
+
+    <!-- Mis órdenes -->
+    <section id="seccionOrdenes" class="d-none mb-5">
+      <h5><i class="bi bi-receipt"></i> Mis órdenes</h5>
+      <div class="table-responsive">
+        <table class="table bg-white shadow-sm align-middle">
+          <thead class="table-light"><tr><th>N.º</th><th>Fecha</th><th>Productos</th><th>Total</th><th>Estado</th><th>Seguimiento</th><th>Entrega estimada</th><th></th></tr></thead>
+          <tbody id="tablaOrdenes"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Carrito (panel lateral) -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="panelCarrito">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-cart3"></i> Mi carrito</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="itemsCarrito"></div>
+      <form id="formCupon" class="input-group input-group-sm my-3">
+        <input name="codigo" class="form-control" placeholder="Cupón (TECNO10)">
+        <button class="btn btn-outline-secondary"><i class="bi bi-ticket-perforated"></i> Aplicar</button>
+      </form>
+      <table class="table table-sm small" id="totales"></table>
+      <form id="formCheckout">
+        <input name="direccion_envio" class="form-control form-control-sm mb-2" placeholder="Dirección de envío" required>
+        <select name="metodo_pago" class="form-select form-select-sm mb-2">
+          <option value="culqi">Culqi</option>
+          <option value="mercadopago">MercadoPago</option>
+          <option value="niubiz">Niubiz</option>
+          <option value="contraentrega">Contra entrega</option>
+        </select>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-danger btn-sm" id="btnVaciar"><i class="bi bi-trash"></i> Vaciar</button>
+          <button class="btn btn-tecno btn-sm flex-fill"><i class="bi bi-bag-check"></i> Finalizar compra</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let token = null, urlAnterior = null, urlSiguiente = null;
+    const $ = id => document.getElementById(id);
+    const ESTADOS = { pendiente: "warning", pagada: "info", enviada: "primary", entregada: "success", cancelada: "secondary" };
+
+    // Llamada a la API con token (si existe); muestra los errores 400/401/403/429
+    async function api(url, opciones = {}) {
+      $("urlPeticion").textContent = `${opciones.method || "GET"} ${decodeURIComponent(url.replace(location.origin, ""))}`;
+      $("mensaje").innerHTML = "";
+      const headers = { "Content-Type": "application/json", Accept: "application/json" };
+      if (token) headers.Authorization = `Token ${token}`;
+      const resp = await fetch(url, { ...opciones, headers });
+      const datos = await resp.json();
+      if (!resp.ok) {
+        const texto = datos.detail || Object.entries(datos).map(([k, v]) => `${k}: ${[].concat(v).join(" ")}`).join(" | ");
+        $("mensaje").innerHTML = `<div class="alert alert-${resp.status === 429 ? "warning" : "danger"}">
+          <i class="bi bi-exclamation-triangle"></i> HTTP ${resp.status} - ${texto}</div>`;
+        throw new Error(texto);
+      }
+      return datos;
+    }
+    const post = (url, cuerpo = {}) => api(url, { method: "POST", body: JSON.stringify(cuerpo) });
+
+    function estrellas(rating) {
+      if (rating === null) return '<span class="text-muted small">Sin reseñas</span>';
+      const llenas = Math.round(rating);
+      return `<span class="estrellas">${'<i class="bi bi-star-fill"></i>'.repeat(llenas)}${'<i class="bi bi-star"></i>'.repeat(5 - llenas)}</span> <small>${rating}</small>`;
+    }
+
+    // ---------- Catálogo ----------
+    function urlFiltros() {
+      const params = new URLSearchParams();
+      for (const [k, v] of new FormData($("filtros"))) if (v !== "") params.append(k, v);
+      return "/api/productos/" + (params.toString() ? `?${params}` : "");
+    }
+
+    async function cargarProductos(url) {
+      try {
+        const datos = await api(url);
+        $("total").textContent = `${datos.count} producto(s)`;
+        urlAnterior = datos.previous; urlSiguiente = datos.next;
+        $("btnAnterior").disabled = !urlAnterior; $("btnSiguiente").disabled = !urlSiguiente;
+        $("productos").innerHTML = datos.results.length ? datos.results.map(p => `
+          <div class="col-sm-6 col-lg-4 col-xl-3">
+            <div class="card card-producto shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between mb-1">
+                  <small class="text-muted">${p.categoria.nombre}</small>
+                  ${p.descuento ? `<span class="badge text-bg-danger">-${p.descuento}%</span>` : ""}
+                </div>
+                <h6 class="mb-1">${p.nombre}</h6>
+                <div class="mb-2">${estrellas(p.rating_promedio)} <small class="text-muted">(${p.total_resenas})</small></div>
+                <ul class="list-unstyled small text-muted mb-2">
+                  ${Object.entries(p.especificaciones).slice(0, 3).map(([k, v]) => `<li><i class="bi bi-dot"></i>${k}: ${v}</li>`).join("")}
+                </ul>
+                ${p.descuento ? `<span class="tachado">S/ ${p.precio}</span><br>` : ""}
+                <span class="fs-5 fw-bold">S/ ${p.precio_con_descuento}</span>
+                <div class="small ${p.disponible ? "text-success" : "text-danger"}">
+                  <i class="bi bi-${p.disponible ? "check-circle" : "x-circle"}"></i> ${p.disponible ? `Stock: ${p.stock}` : "Agotado"}</div>
+                <small class="text-muted"><i class="bi bi-shop"></i> ${p.vendedor}</small>
+              </div>
+              <div class="card-footer bg-transparent border-0 d-flex gap-2">
+                <button class="btn btn-sm btn-tecno flex-fill" onclick="agregar(${p.id})" ${p.disponible ? "" : "disabled"}>
+                  <i class="bi bi-cart-plus"></i> Agregar</button>
+                <a href="${p.url}" class="btn btn-sm btn-outline-secondary" title="Ver en la API"><i class="bi bi-link-45deg"></i></a>
+              </div>
+            </div>
+          </div>`).join("") : `<p class="text-center text-muted"><i class="bi bi-inbox"></i> Sin resultados.</p>`;
+      } catch (e) {}
+    }
+
+    async function cargarCategorias() {
+      try {
+        const categorias = await api("/api/categorias/");
+        categorias.forEach(c => $("selCategoria").add(new Option(c.nombre, c.slug)));
+      } catch (e) {}
+    }
+
+    // ---------- Carrito ----------
+    function pintarCarrito(c) {
+      $("contadorCarrito").textContent = c.cantidad_items;
+      $("itemsCarrito").innerHTML = c.items.length ? c.items.map(i => `
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2 small">
+          <div class="me-2"><b>${i.producto_nombre}</b><br>S/ ${i.precio_unitario} x
+            <input type="number" min="1" value="${i.cantidad}" class="form-control form-control-sm d-inline-block" style="width:65px"
+                   onchange="actualizar(${i.producto}, this.value)"></div>
+          <div class="text-end">S/ ${i.subtotal}<br>
+            <button class="btn btn-sm btn-link text-danger p-0" onclick="eliminar(${i.producto})"><i class="bi bi-x-lg"></i></button></div>
+        </div>`).join("") : '<p class="text-muted small"><i class="bi bi-cart-x"></i> El carrito está vacío.</p>';
+      $("totales").innerHTML = `
+        <tr><td>Subtotal</td><td class="text-end">S/ ${c.subtotal}</td></tr>
+        <tr><td>IGV (18 %)</td><td class="text-end">S/ ${c.impuestos}</td></tr>
+        <tr><td>Total</td><td class="text-end">S/ ${c.total}</td></tr>
+        ${c.cupon ? `<tr class="text-success"><td>Cupón ${c.cupon}</td><td class="text-end">- S/ ${c.descuento_cupon}</td></tr>` : ""}
+        <tr class="fw-bold"><td>Total a pagar</td><td class="text-end">S/ ${c.total_con_descuento}</td></tr>`;
+    }
+
+    function requiereLogin() {
+      if (token) return false;
+      $("mensaje").innerHTML = `<div class="alert alert-info"><i class="bi bi-info-circle"></i> Inicie sesión para usar el carrito.</div>`;
+      return true;
+    }
+
+    async function cargarCarrito() { if (!requiereLogin()) try { pintarCarrito(await api("/api/carrito/")); } catch (e) {} }
+    async function agregar(id) { if (!requiereLogin()) try { pintarCarrito(await post("/api/carrito/agregar/", { producto: id, cantidad: 1 })); } catch (e) {} }
+    async function actualizar(id, cantidad) { try { pintarCarrito(await post("/api/carrito/actualizar/", { producto: id, cantidad: Number(cantidad) })); } catch (e) { cargarCarrito(); } }
+    async function eliminar(id) { try { pintarCarrito(await post("/api/carrito/eliminar/", { producto: id })); } catch (e) {} }
+
+    $("formCupon").addEventListener("submit", async e => {
+      e.preventDefault();
+      try { pintarCarrito(await post("/api/carrito/aplicar-cupon/", Object.fromEntries(new FormData(e.target)))); } catch (e) {}
+    });
+    $("btnVaciar").onclick = async () => { try { pintarCarrito(await post("/api/carrito/vaciar/")); } catch (e) {} };
+    $("formCheckout").addEventListener("submit", async e => {
+      e.preventDefault();
+      try {
+        const orden = await post("/api/carrito/checkout/", Object.fromEntries(new FormData(e.target)));
+        window.bootstrap?.Offcanvas.getInstance($("panelCarrito"))?.hide();
+        cargarCarrito();
+        await cargarOrdenes();
+        $("mensaje").innerHTML = `<div class="alert alert-success"><i class="bi bi-check-circle"></i>
+          Orden ${orden.numero.slice(0, 8)} creada. Total S/ ${orden.total}. Entrega estimada: ${orden.tiempo_estimado_entrega.desde} al ${orden.tiempo_estimado_entrega.hasta}.</div>`;
+      } catch (e) {}
+    });
+
+    // ---------- Órdenes ----------
+    async function cargarOrdenes() {
+      if (requiereLogin()) return;
+      try {
+        const datos = await api("/api/ordenes/mis-ordenes/");
+        $("seccionOrdenes").classList.remove("d-none");
+        $("tablaOrdenes").innerHTML = datos.results.map(o => `
+          <tr class="small">
+            <td>${o.numero.slice(0, 8)}</td>
+            <td>${o.fecha_creacion.slice(0, 10)}</td>
+            <td>${o.items.map(i => `${i.cantidad} x ${i.nombre_producto}`).join("<br>")}</td>
+            <td>S/ ${o.total}</td>
+            <td><span class="badge text-bg-${ESTADOS[o.estado]}">${o.estado}</span></td>
+            <td>${o.numero_seguimiento || "-"}</td>
+            <td>${o.tiempo_estimado_entrega.desde} al ${o.tiempo_estimado_entrega.hasta}</td>
+            <td>${o.estado === "pendiente" ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelar(${o.id})"><i class="bi bi-x-circle"></i> Cancelar</button>` : ""}</td>
+          </tr>`).join("") || '<tr><td colspan="8" class="text-center text-muted">Sin órdenes</td></tr>';
+        $("seccionOrdenes").scrollIntoView({ behavior: "smooth" });
+      } catch (e) {}
+    }
+    async function cancelar(id) { try { await post(`/api/ordenes/${id}/cancelar/`); cargarOrdenes(); } catch (e) {} }
+
+    // ---------- Eventos ----------
+    $("formLogin").addEventListener("submit", async e => {
+      e.preventDefault();
+      try {
+        token = (await post("/api/auth/token/", Object.fromEntries(new FormData(e.target)))).token;
+        $("usuarioActual").innerHTML = `<i class="bi bi-person-check"></i> ${e.target.username.value}`;
+        e.target.classList.add("d-none");
+        cargarCarrito();
+      } catch (e) {}
+    });
+    $("btnCarrito").addEventListener("click", cargarCarrito);
+    $("btnOrdenes").onclick = cargarOrdenes;
+    $("filtros").addEventListener("submit", e => { e.preventDefault(); cargarProductos(urlFiltros()); });
+    $("btnAnterior").onclick = () => urlAnterior && cargarProductos(urlAnterior);
+    $("btnSiguiente").onclick = () => urlSiguiente && cargarProductos(urlSiguiente);
+
+    cargarCategorias().then(() => cargarProductos("/api/productos/"));
+  </script>
+</body>
+</html>
