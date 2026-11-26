@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Prueba CORS - TecnoMarket</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
+    button { padding: 8px 14px; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 12px; overflow: auto; }
+    .ok { color: #1b7f3b; } .error { color: #b3261e; }
+  </style>
+</head>
+<body>
+  <h1>Prueba de CORS</h1>
+  <p>Esta página se sirve desde <code>http://127.0.0.1:5500</code> (otro origen) y pide datos a la API en
+     <code>http://127.0.0.1:8000</code>. Abra <b>F12 &gt; Network</b>, haga clic en la petición <code>productos/</code>
+     y revise la cabecera <code>access-control-allow-origin</code>.</p>
+  <button id="probar">[ GET ] /api/productos/</button>
+  <p id="estado"></p>
+  <pre id="salida"></pre>
+  <script>
+    document.getElementById("probar").onclick = async () => {
+      const estado = document.getElementById("estado");
+      try {
+        const resp = await fetch("http://127.0.0.1:8000/api/productos/?page_size=3");
+        const datos = await resp.json();
+        estado.className = "ok";
+        estado.textContent = `[OK] HTTP ${resp.status} - CORS permitido para ${location.origin}`;
+        document.getElementById("salida").textContent = JSON.stringify(datos.results.slice(0, 3), null, 2);
+      } catch (e) {
+        estado.className = "error";
+        estado.textContent = "[X] Bloqueado por CORS: este origen no está en CORS_ALLOWED_ORIGINS";
+      }
+    };
+  </script>
+</body>
+</html>
