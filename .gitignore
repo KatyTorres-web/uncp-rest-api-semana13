@@ -11,11 +11,14 @@ __pycache__/
 # Django
 db.sqlite3
 db.sqlite3-journal
-*.log
 media/
 staticfiles/
 
-# Variables de entorno
+# Registros del sistema
+logs/
+*.log
+
+# Variables de entorno y secretos
 .env
 .env.*
 !.env.example
